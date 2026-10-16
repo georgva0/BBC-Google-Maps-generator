@@ -1,0 +1,32 @@
+{
+    "elementTypes": {
+        "labels": "labels",
+        "geometry": "geometry",
+        "geometry.stroke": "stroke",
+        "geometry.fill": "fill"
+    },
+    "featureTypes": {
+        "administrative": "Borders",
+        "administrative.country": "Borders - countries",
+        "administrative.province": "Borders - provinces",
+        "landscape": "Land - base",
+        "landscape.natural": "Land - natural",
+        "landscape.man_made": "Land - man made",
+        "landscape.natural.terrain": "Land - relief",
+        "poi": "Points of interest - all",
+        "poi.business": "Buildings - business",
+        "poi.government": "Buildings - government",
+        "poi.medical": "Buildings - medical",
+        "poi.school": "Buildings - school",
+        "poi.sports_complex": "Buildings - sports",
+        "poi.attraction": "Attractions",
+        "poi.park": "Parks",
+        "road": "Roads - all",
+        "road.highway": "Roads - main",
+        "road.arterial": "Roads - secondary",
+        "road.local": "Roads - local",
+        "transit": "Transport routes",
+        "transit.line": "Railway tracks",
+        "water": "Water"
+    }
+}

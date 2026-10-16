@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#e9eee7">
+    <title>Map Studio</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Map Studio home">
+            <span class="brand-mark" aria-hidden="true">M</span>
+            <span>MAP STUDIO</span>
+        </a>
+        <span class="topbar-note">Google Maps image maker</span>
+    </header>
+
+    <main class="workspace">
+        <aside class="controls" aria-label="Map settings">
+            <div class="section-heading">
+                <p class="eyebrow">01 / LOCATION</p>
+                <h1>Build a map</h1>
+            </div>
+
+            <form id="map-form">
+                <label for="map-url">Google Maps URL</label>
+                <div class="url-row">
+                    <input id="map-url" name="mapUrl" type="url" placeholder="Paste a maps.google.com URL" required autocomplete="url">
+                    <button class="quiet-button" id="read-url" type="button" aria-label="Read coordinates from URL" title="Read coordinates from URL">Read</button>
+                </div>
+                <p class="field-note">Use a link containing a map center and zoom.</p>
+
+                <label for="map-style">Map style</label>
+                <select id="map-style" name="style" required>
+                    <option value="streetLevel">Loading styles...</option>
+                </select>
+
+                <div class="advanced-styles">
+                    <button id="toggle-layers" class="text-button" type="button" aria-expanded="false">Adjust visible layers</button>
+                    <div id="advanced-layers" class="advanced-layers" hidden></div>
+                </div>
+
+                <fieldset class="ratio-fieldset">
+                    <legend>Image shape</legend>
+                    <div class="ratio-options">
+                        <label class="ratio-option">
+                            <input type="radio" name="ratio" value="landscape" checked>
+                            <span class="ratio-shape shape-landscape" aria-hidden="true"></span>
+                            <span>16:9</span>
+                        </label>
+                        <label class="ratio-option">
+                            <input type="radio" name="ratio" value="square">
+                            <span class="ratio-shape shape-square" aria-hidden="true"></span>
+                            <span>1:1</span>
+                        </label>
+                        <label class="ratio-option">
+                            <input type="radio" name="ratio" value="portrait">
+                            <span class="ratio-shape shape-portrait" aria-hidden="true"></span>
+                            <span>9:16</span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <section class="label-tools" aria-labelledby="labels-title">
+                    <div class="auxiliary-heading">
+                        <h2 id="labels-title">Labels</h2>
+                    </div>
+                    <div class="label-entry">
+                        <input id="label-search" type="search" placeholder="Place, address, or lat, lng" autocomplete="off" aria-label="Label location">
+                        <input id="label-caption" type="text" placeholder="Label text (optional)" aria-label="Label caption">
+                        <button id="add-label" class="quiet-button" type="button">Add</button>
+                    </div>
+                    <div id="label-list" class="label-list" aria-live="polite"></div>
+                </section>
+
+                <section class="kml-tools" aria-labelledby="kml-title">
+                    <div class="auxiliary-heading">
+                        <h2 id="kml-title">KML layers</h2>
+                        <button id="import-kml" class="text-button" type="button">Import KML</button>
+                    </div>
+                    <input id="kml-file" type="file" accept=".kml,.xml,application/vnd.google-earth.kml+xml" hidden>
+                    <div id="kml-list" class="kml-list" aria-live="polite"></div>
+                </section>
+
+                <div class="state-actions">
+                    <button id="export-state" class="text-button" type="button">Export map settings</button>
+                    <button id="import-state" class="text-button" type="button">Import settings</button>
+                    <input id="state-file" type="file" accept="application/json,.json" hidden>
+                </div>
+
+                <button class="primary-button" id="render-map" type="submit">Generate map</button>
+                <p id="status" class="status" role="status" aria-live="polite">Paste a map URL to begin.</p>
+            </form>
+
+            <section class="auxiliary-tools" aria-label="Locator and scale">
+                <div class="auxiliary-tool">
+                    <div class="auxiliary-heading">
+                        <h2>Locator</h2>
+                        <div class="auxiliary-actions">
+                            <button type="button" data-export="locator" data-format="png">PNG</button>
+                            <button type="button" data-export="locator" data-format="svg">SVG</button>
+                        </div>
+                    </div>
+                    <div id="locator-container" class="locator-preview" aria-label="Globe locator"></div>
+                </div>
+                <div class="auxiliary-tool">
+                    <div class="auxiliary-heading">
+                        <h2>Scale</h2>
+                        <div class="auxiliary-actions">
+                            <button type="button" data-export="scale" data-format="png">PNG</button>
+                            <button type="button" data-export="scale" data-format="svg">SVG</button>
+                        </div>
+                    </div>
+                    <svg id="scale-svg" class="scale-preview" viewBox="0 0 220 64" role="img" aria-label="Metric and imperial map scale" xmlns="http://www.w3.org/2000/svg">
+                        <text id="scale-metric-label" x="12" y="16" fill="#222" font-family="Arial, sans-serif" font-size="12"></text>
+                        <rect id="scale-metric-bar" x="12" y="22" width="0" height="3" fill="#616161"></rect>
+                        <text id="scale-imperial-label" x="12" y="45" fill="#222" font-family="Arial, sans-serif" font-size="12"></text>
+                        <rect id="scale-imperial-bar" x="12" y="51" width="0" height="3" fill="#616161"></rect>
+                    </svg>
+                </div>
+            </section>
+
+            <fieldset class="map-overlay-options">
+                <legend>Include in map PNG</legend>
+                <label><input id="include-locator" type="checkbox" checked> Locator</label>
+                <label><input id="include-scale" type="checkbox" checked> Scale</label>
+            </fieldset>
+
+            <div class="download-row">
+                <div>
+                    <p class="eyebrow">PNG EXPORT</p>
+                    <p id="output-size" class="output-size">1280 × 720 px</p>
+                </div>
+                <div class="download-actions">
+                    <button class="download-button" id="download-map" type="button" disabled>Download PNG</button>
+                    <button class="all-download-button" id="download-all" type="button" disabled title="Download map, locator, and scale">All files</button>
+                </div>
+            </div>
+        </aside>
+
+        <section class="preview-column" aria-label="Map preview">
+            <div class="preview-toolbar">
+                <span>PREVIEW</span>
+                <span id="preview-dimensions">16:9 · 1280 × 720</span>
+            </div>
+            <div id="preview-frame" class="preview-frame landscape">
+                <div id="empty-preview" class="empty-preview">
+                    <span class="preview-crosshair" aria-hidden="true">+</span>
+                    <p>Your map will appear here</p>
+                </div>
+                <img id="map-image" alt="Generated Google map preview" hidden>
+            </div>
+            <p class="attribution-note">Google Maps attribution is included in the image.</p>
+        </section>
+    </main>
+    <script src="vendor/d3.min.js" defer></script>
+    <script src="vendor/d3-geo-projection.min.js" defer></script>
+    <script src="vendor/topojson.min.js" defer></script>
+    <script src="world-loader.js" defer></script>
+    <script src="world-110m.js" defer></script>
+    <script src="locator.js" defer></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
