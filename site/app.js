@@ -405,15 +405,15 @@ async function composeMapImage(mapBlob, location) {
 
             const inset = 20 * scale;
             if (locatorImage) {
-                const locatorSize = 120 * scale;
+                const locatorSize = 150 * scale;
                 context.drawImage(locatorImage, inset, inset, locatorSize, locatorSize);
             }
             if (scaleImage) {
-                const scaleWidth = 220 * scale;
-                const scaleHeight = 64 * scale;
+                const scaleWidth = 275 * scale;
+                const scaleHeight = 80 * scale;
                 const x = canvas.width - scaleWidth - inset;
                 context.fillStyle = "rgba(255,255,255,0.88)";
-                context.fillRect(x - 8 * scale, inset - 6 * scale, scaleWidth + 16 * scale, scaleHeight + 12 * scale);
+                context.fillRect(x - 10 * scale, inset - 8 * scale, scaleWidth + 20 * scale, scaleHeight + 16 * scale);
                 context.drawImage(scaleImage, x, inset, scaleWidth, scaleHeight);
             }
 
