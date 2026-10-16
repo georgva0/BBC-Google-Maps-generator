@@ -16,7 +16,9 @@ const outputSize = document.getElementById("output-size");
 const previewDimensions = document.getElementById("preview-dimensions");
 const renderButton = document.getElementById("render-map");
 const downloadButton = document.getElementById("download-map");
+const MAX_PNG_BYTES = 2 * 1024 * 1024; // 2 MB limit
 let currentImageUrl = "";
+let currentImageDimensions = { width: 1280, height: 720 };
 let currentMapLocation = null;
 let presetStyles = {};
 let featureNames = {};
@@ -36,6 +38,7 @@ function selectedRatio() {
 function updateDimensions() {
     const ratioName = selectedRatio();
     const size = dimensions[ratioName];
+    currentImageDimensions = { width: size.width, height: size.height };
     previewFrame.className = `preview-frame ${ratioName}`;
     outputSize.textContent = `${size.width} × ${size.height} px`;
     previewDimensions.textContent = `${size.ratio} | ${size.width} x ${size.height}`;
@@ -228,18 +231,23 @@ async function generateMap(event) {
         if (!mapBlob.type.startsWith("image/")) {
             throw new Error("The map service did not return an image.");
         }
-        const imageBlob = await composeMapImage(mapBlob, location);
+        const { blob: imageBlob, width: exportedWidth, height: exportedHeight } = await composeMapImage(mapBlob, location);
 
         if (currentImageUrl) {
             URL.revokeObjectURL(currentImageUrl);
         }
         currentImageUrl = URL.createObjectURL(imageBlob);
+        currentImageDimensions = { width: exportedWidth, height: exportedHeight };
         previewImage.src = currentImageUrl;
         previewImage.hidden = false;
         emptyPreview.hidden = true;
         downloadButton.disabled = false;
         document.getElementById("download-all").disabled = false;
-        setStatus("Map ready to download.");
+        const sizeFormatted = imageBlob.size >= 1024 * 1024
+            ? `${(imageBlob.size / (1024 * 1024)).toFixed(2)} MB`
+            : `${Math.round(imageBlob.size / 1024)} KB`;
+        outputSize.textContent = `${exportedWidth} × ${exportedHeight} px (${sizeFormatted})`;
+        setStatus(`Map ready to download (${sizeFormatted}).`);
     } catch (error) {
         setStatus(error.message, "error");
     } finally {
@@ -358,6 +366,39 @@ async function svgToImage(svg) {
     }
 }
 
+async function canvasToPngUnderLimit(sourceCanvas, maxBytes = MAX_PNG_BYTES) {
+    let blob = await new Promise(resolve => sourceCanvas.toBlob(resolve, "image/png"));
+    if (blob && blob.size <= maxBytes) {
+        return { blob, width: sourceCanvas.width, height: sourceCanvas.height };
+    }
+
+    let currentCanvas = sourceCanvas;
+    let currentBlob = blob;
+
+    while (currentBlob && currentBlob.size > maxBytes && currentCanvas.width > 320 && currentCanvas.height > 320) {
+        const ratio = Math.min(0.92, Math.sqrt((maxBytes * 0.92) / currentBlob.size));
+        const nextWidth = Math.max(320, Math.round(currentCanvas.width * ratio));
+        const nextHeight = Math.max(320, Math.round(currentCanvas.height * ratio));
+
+        if (nextWidth >= currentCanvas.width || nextHeight >= currentCanvas.height) {
+            break;
+        }
+
+        const scaledCanvas = document.createElement("canvas");
+        scaledCanvas.width = nextWidth;
+        scaledCanvas.height = nextHeight;
+        const ctx = scaledCanvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(currentCanvas, 0, 0, nextWidth, nextHeight);
+
+        currentCanvas = scaledCanvas;
+        currentBlob = await new Promise(resolve => scaledCanvas.toBlob(resolve, "image/png"));
+    }
+
+    return { blob: currentBlob, width: currentCanvas.width, height: currentCanvas.height };
+}
+
 async function composeMapImage(mapBlob, location) {
     const activeLabels = labels.filter(label => label.visible);
     const locatorSvg = document.getElementById("include-locator").checked
@@ -366,9 +407,6 @@ async function composeMapImage(mapBlob, location) {
     const scaleSvg = document.getElementById("include-scale").checked
         ? document.getElementById("scale-svg")
         : null;
-    if (!activeLabels.length && !locatorSvg && !scaleSvg) {
-        return mapBlob;
-    }
 
     const objectUrl = URL.createObjectURL(mapBlob);
     try {
@@ -378,6 +416,11 @@ async function composeMapImage(mapBlob, location) {
             image.onerror = reject;
             image.src = objectUrl;
         });
+
+        if (!activeLabels.length && !locatorSvg && !scaleSvg && mapBlob.size <= MAX_PNG_BYTES) {
+            return { blob: mapBlob, width: image.naturalWidth, height: image.naturalHeight };
+        }
+
         const canvas = document.createElement("canvas");
         canvas.width = image.naturalWidth;
         canvas.height = image.naturalHeight;
@@ -403,7 +446,7 @@ async function composeMapImage(mapBlob, location) {
             context.fillRect(x - 8 * scale, inset - 6 * scale, scaleWidth + 16 * scale, scaleHeight + 12 * scale);
             context.drawImage(scaleImage, x, inset, scaleWidth, scaleHeight);
         }
-        return await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+        return await canvasToPngUnderLimit(canvas, MAX_PNG_BYTES);
     } finally {
         URL.revokeObjectURL(objectUrl);
     }
@@ -726,7 +769,8 @@ function downloadMap() {
     if (!currentImageUrl) {
         return;
     }
-    const { width, height } = dimensions[selectedRatio()];
+    const width = currentImageDimensions.width || dimensions[selectedRatio()].width;
+    const height = currentImageDimensions.height || dimensions[selectedRatio()].height;
     const link = document.createElement("a");
     link.href = currentImageUrl;
     link.download = `map_${width}x${height}.png`;
@@ -748,18 +792,17 @@ function downloadSvgAsPng(svg, filename) {
     const svgBlob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
     const objectUrl = URL.createObjectURL(svgBlob);
     const image = new Image();
-    image.onload = () => {
+    image.onload = async () => {
         const size = svg.viewBox.baseVal;
         const canvas = document.createElement("canvas");
         canvas.width = size.width * 2;
         canvas.height = size.height * 2;
         canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
         URL.revokeObjectURL(objectUrl);
-        canvas.toBlob(blob => {
-            if (blob) {
-                downloadBlob(blob, filename);
-            }
-        }, "image/png");
+        const { blob } = await canvasToPngUnderLimit(canvas, MAX_PNG_BYTES);
+        if (blob) {
+            downloadBlob(blob, filename);
+        }
     };
     image.onerror = () => URL.revokeObjectURL(objectUrl);
     image.src = objectUrl;
