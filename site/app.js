@@ -208,7 +208,15 @@ async function generateMap(event) {
     setStatus("Generating the map…");
 
     try {
-        const location = parseMapUrl(urlInput.value);
+        let location = parseMapUrl(urlInput.value);
+        if (labels.length > 0) {
+            location = {
+                ...location,
+                lat: labels[0].lat,
+                lng: labels[0].lng,
+            };
+            urlInput.value = `https://www.google.com/maps/@${labels[0].lat},${labels[0].lng},${location.zoom}z`;
+        }
         updateReferenceOverlays(location);
         const response = await fetch(apiUrl, {
             method: "POST",
@@ -492,9 +500,11 @@ async function addMapLabel() {
         };
         labels.push(label);
         renderLabels();
-        const zoom = currentMapLocation?.zoom || 12;
-        urlInput.value = `https://www.google.com/maps/@${label.lat},${label.lng},${zoom}z`;
-        updateReferenceOverlays(parseMapUrl(urlInput.value));
+        if (labels.length === 1) {
+            const zoom = currentMapLocation?.zoom || 12;
+            urlInput.value = `https://www.google.com/maps/@${label.lat},${label.lng},${zoom}z`;
+            updateReferenceOverlays(parseMapUrl(urlInput.value));
+        }
         searchInput.value = "";
         captionInput.value = "";
         invalidateOutput();
@@ -536,6 +546,11 @@ function renderLabels() {
         remove.textContent = "Remove";
         remove.addEventListener("click", () => {
             labels.splice(index, 1);
+            if (index === 0 && labels.length > 0) {
+                const zoom = currentMapLocation?.zoom || 12;
+                urlInput.value = `https://www.google.com/maps/@${labels[0].lat},${labels[0].lng},${zoom}z`;
+                updateReferenceOverlays(parseMapUrl(urlInput.value));
+            }
             renderLabels();
             invalidateOutput();
         });
@@ -746,6 +761,15 @@ async function importMapState(file) {
             ? state.visibilityOverrides
             : {};
         labels = Array.isArray(state.labels) ? state.labels.slice(0, 100).map(normalizeImportedLabel) : [];
+        if (labels.length > 0) {
+            let zoom = 12;
+            try {
+                zoom = parseMapUrl(urlInput.value).zoom;
+            } catch {
+                zoom = currentMapLocation?.zoom || 12;
+            }
+            urlInput.value = `https://www.google.com/maps/@${labels[0].lat},${labels[0].lng},${zoom}z`;
+        }
         kmlLayers = Array.isArray(state.kmlLayers) ? state.kmlLayers.slice(0, 20) : [];
         renderLayerControls();
         renderLabels();
