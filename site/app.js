@@ -16,15 +16,64 @@ const outputSize = document.getElementById("output-size");
 const previewDimensions = document.getElementById("preview-dimensions");
 const renderButton = document.getElementById("render-map");
 const downloadButton = document.getElementById("download-map");
+const locationSearchInput = document.getElementById("location-search");
+const interactiveMapElement = document.getElementById("interactive-map");
+const modeInteractiveButton = document.getElementById("mode-interactive");
+const modeExportButton = document.getElementById("mode-export");
 const MAX_PNG_BYTES = 3.5 * 1024 * 1024; // 3.5 MB limit
+
+// Layers that are selected by default for every map style, when the style offers them.
+const DEFAULT_VISIBLE_FEATURES = new Set([
+    "landscape.natural",
+    "landscape.man_made",
+    "water",
+    "administrative.country",
+]);
+
 let currentImageUrl = "";
 let currentImageDimensions = { width: 1280, height: 720 };
 let currentMapLocation = null;
+let initialMapLocation = null;
 let presetStyles = {};
 let featureNames = {};
 let layerOverrides = {};
+let toggleableFeatureTypes = [];
 let labels = [];
 let kmlLayers = [];
+let googleMap = null;
+let placesAutocomplete = null;
+let interactiveMarkers = [];
+let interactiveKmlOverlays = [];
+let googleMapsApiKey = "";
+let isUpdatingMapFromCode = false;
+
+function setPreviewMode(mode) {
+    if (mode === "export" && currentImageUrl) {
+        modeExportButton.disabled = false;
+        modeExportButton.classList.add("active");
+        modeExportButton.setAttribute("aria-selected", "true");
+        modeInteractiveButton.classList.remove("active");
+        modeInteractiveButton.setAttribute("aria-selected", "false");
+        previewImage.hidden = false;
+        if (interactiveMapElement) interactiveMapElement.hidden = true;
+        emptyPreview.hidden = true;
+    } else {
+        modeInteractiveButton.classList.add("active");
+        modeInteractiveButton.setAttribute("aria-selected", "true");
+        modeExportButton.classList.remove("active");
+        modeExportButton.setAttribute("aria-selected", "false");
+        previewImage.hidden = true;
+        if (interactiveMapElement) {
+            interactiveMapElement.hidden = false;
+            if (googleMap) {
+                emptyPreview.hidden = true;
+                const center = googleMap.getCenter();
+                google.maps.event.trigger(googleMap, "resize");
+                if (center) googleMap.setCenter(center);
+            }
+        }
+    }
+}
 
 function setStatus(message, state = "") {
     statusText.textContent = message;
@@ -41,7 +90,13 @@ function updateDimensions() {
     currentImageDimensions = { width: size.width, height: size.height };
     previewFrame.className = `preview-frame ${ratioName}`;
     outputSize.textContent = `${size.width} × ${size.height} px`;
-    previewDimensions.textContent = `${size.ratio} | ${size.width} x ${size.height}`;
+    previewDimensions.textContent = `${size.ratio} · ${size.width} × ${size.height}`;
+
+    if (googleMap && window.google?.maps?.event) {
+        const center = googleMap.getCenter();
+        google.maps.event.trigger(googleMap, "resize");
+        if (center) googleMap.setCenter(center);
+    }
 }
 
 function invalidateOutput() {
@@ -52,7 +107,8 @@ function invalidateOutput() {
     currentImageUrl = "";
     previewImage.removeAttribute("src");
     previewImage.hidden = true;
-    emptyPreview.hidden = false;
+    modeExportButton.disabled = true;
+    setPreviewMode("interactive");
     downloadButton.disabled = true;
     document.getElementById("download-all").disabled = true;
     setStatus("Settings changed. Generate a fresh map to download.");
@@ -142,6 +198,257 @@ function parseMapUrl(rawUrl) {
     return { lat, lng, zoom: Math.max(3, Math.min(16, Math.round(zoom))) };
 }
 
+function loadGoogleMapsScript(apiKey) {
+    return new Promise((resolve, reject) => {
+        if (window.google && window.google.maps) {
+            resolve(window.google.maps);
+            return;
+        }
+        if (!apiKey) {
+            reject(new Error("No Google Maps API key provided."));
+            return;
+        }
+        const callbackName = "__initGoogleMapsApi_" + Math.random().toString(36).substring(2, 9);
+        window[callbackName] = () => {
+            delete window[callbackName];
+            resolve(window.google.maps);
+        };
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&callback=${callbackName}`;
+        script.async = true;
+        script.defer = true;
+        script.onerror = () => {
+            delete window[callbackName];
+            reject(new Error("Could not load Google Maps JavaScript API."));
+        };
+        document.head.appendChild(script);
+    });
+}
+
+function isFeatureVisibleByDefault(featureType) {
+    return DEFAULT_VISIBLE_FEATURES.has(featureType);
+}
+
+function effectiveFeatureVisibility(featureType) {
+    return Object.hasOwn(layerOverrides, featureType)
+        ? layerOverrides[featureType]
+        : isFeatureVisibleByDefault(featureType);
+}
+
+function computeEffectiveMapStyles() {
+    const preset = presetStyles[styleSelect.value];
+    const baseStyles = (preset?.styles || []).map(rule => {
+        const copy = { ...rule };
+        if (Array.isArray(rule.stylers)) {
+            copy.stylers = rule.stylers.map(styler => ({ ...styler }));
+        }
+        delete copy.noToggle;
+        return copy;
+    });
+
+    const overrideRules = toggleableFeatureTypes.map(featureType => ({
+        featureType,
+        stylers: [{ visibility: effectiveFeatureVisibility(featureType) ? "on" : "off" }],
+    }));
+
+    return [...baseStyles, ...overrideRules];
+}
+
+function applyInteractiveMapStyles() {
+    if (googleMap) {
+        googleMap.setOptions({ styles: computeEffectiveMapStyles() });
+    }
+}
+
+function syncInteractiveMarkers() {
+    for (const marker of interactiveMarkers) {
+        marker.setMap(null);
+    }
+    interactiveMarkers = [];
+
+    if (!googleMap || !window.google || !google.maps) return;
+
+    labels.forEach(label => {
+        if (label.visible === false) return;
+        const marker = new google.maps.Marker({
+            position: { lat: label.lat, lng: label.lng },
+            map: googleMap,
+            title: label.title,
+        });
+        interactiveMarkers.push(marker);
+    });
+}
+
+function syncInteractiveKmlOverlays() {
+    for (const overlay of interactiveKmlOverlays) {
+        overlay.setMap(null);
+    }
+    interactiveKmlOverlays = [];
+
+    if (!googleMap || !window.google || !google.maps) return;
+
+    for (const layer of kmlLayers) {
+        if (!layer.visible) continue;
+        for (const overlay of layer.overlays || []) {
+            if (overlay.type === "line" && Array.isArray(overlay.points)) {
+                const polyline = new google.maps.Polyline({
+                    path: overlay.points,
+                    geodesic: true,
+                    strokeColor: overlay.color || "#174b39",
+                    strokeOpacity: 1.0,
+                    strokeWeight: 3,
+                    map: googleMap,
+                });
+                interactiveKmlOverlays.push(polyline);
+            } else if (overlay.type === "polygon" && Array.isArray(overlay.points)) {
+                const polygon = new google.maps.Polygon({
+                    paths: overlay.points,
+                    strokeColor: overlay.color || "#174b39",
+                    strokeOpacity: 0.8,
+                    strokeWeight: 2,
+                    fillColor: overlay.color || "#174b39",
+                    fillOpacity: 0.25,
+                    map: googleMap,
+                });
+                interactiveKmlOverlays.push(polygon);
+            } else if (overlay.type === "point") {
+                const marker = new google.maps.Marker({
+                    position: { lat: overlay.lat, lng: overlay.lng },
+                    map: googleMap,
+                });
+                interactiveKmlOverlays.push(marker);
+            }
+        }
+    }
+}
+
+let isInitializingMap = true;
+
+function resetToInitialState() {
+    const initial = initialMapLocation || { lat: 51.5074, lng: -0.1278, zoom: 12 };
+    const { lat, lng, zoom } = initial;
+
+    labels = [];
+    renderLabels();
+
+    if (locationSearchInput) {
+        locationSearchInput.value = "";
+    }
+
+    currentMapLocation = { lat, lng, zoom };
+    urlInput.value = `https://www.google.com/maps/@${lat},${lng},${zoom}z`;
+    updateReferenceOverlays(currentMapLocation);
+
+    if (googleMap) {
+        isUpdatingMapFromCode = true;
+        googleMap.setCenter({ lat, lng });
+        googleMap.setZoom(zoom);
+        isUpdatingMapFromCode = false;
+    }
+
+    invalidateOutput();
+    setStatus("Map reset to its initial view. All labels removed.");
+}
+
+async function initGoogleMaps(apiKey) {
+    if (!apiKey) {
+        emptyPreview.innerHTML = '<p style="color:var(--burgundy,#b00);padding:1rem;">Google Maps API key is missing. Check your settings.</p>';
+        return;
+    }
+    googleMapsApiKey = apiKey;
+
+    try {
+        await loadGoogleMapsScript(apiKey);
+
+        let initialLoc = { lat: 51.5074, lng: -0.1278, zoom: 12 };
+        if (urlInput.value.trim()) {
+            try {
+                initialLoc = parseMapUrl(urlInput.value);
+            } catch {
+                // Ignore parse errors on initial load
+            }
+        }
+        currentMapLocation = initialLoc;
+        initialMapLocation = { ...initialLoc };
+
+        googleMap = new google.maps.Map(interactiveMapElement, {
+            center: { lat: initialLoc.lat, lng: initialLoc.lng },
+            zoom: initialLoc.zoom,
+            isFractionalZoomEnabled: false,
+            mapTypeId: "roadmap",
+            disableDefaultUI: false,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            styles: computeEffectiveMapStyles(),
+        });
+
+        googleMap.addListener("idle", () => {
+            if (isUpdatingMapFromCode) return;
+            const center = googleMap.getCenter();
+            if (!center) return;
+            const lat = Number(center.lat().toFixed(6));
+            const lng = Number(center.lng().toFixed(6));
+            const zoom = Math.max(3, Math.min(16, Math.round(googleMap.getZoom() || 12)));
+            currentMapLocation = { lat, lng, zoom };
+            urlInput.value = `https://www.google.com/maps/@${lat},${lng},${zoom}z`;
+            updateReferenceOverlays(currentMapLocation);
+            if (!isInitializingMap) {
+                invalidateOutput();
+            }
+        });
+
+        if (locationSearchInput) {
+            locationSearchInput.addEventListener("keydown", event => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                }
+            });
+
+            placesAutocomplete = new google.maps.places.Autocomplete(locationSearchInput, {
+                fields: ["geometry", "name", "formatted_address"],
+            });
+
+            placesAutocomplete.addListener("place_changed", () => {
+                const place = placesAutocomplete.getPlace();
+                if (!place || !place.geometry || !place.geometry.location) {
+                    return;
+                }
+                isUpdatingMapFromCode = true;
+                if (place.geometry.viewport) {
+                    googleMap.fitBounds(place.geometry.viewport);
+                } else {
+                    googleMap.setCenter(place.geometry.location);
+                    googleMap.setZoom(13);
+                }
+                const center = googleMap.getCenter();
+                const lat = Number(center.lat().toFixed(6));
+                const lng = Number(center.lng().toFixed(6));
+                const zoom = Math.max(3, Math.min(16, Math.round(googleMap.getZoom() || 12)));
+                currentMapLocation = { lat, lng, zoom };
+                urlInput.value = `https://www.google.com/maps/@${lat},${lng},${zoom}z`;
+                updateReferenceOverlays(currentMapLocation);
+                invalidateOutput();
+                setStatus(`Location set: ${place.name || place.formatted_address || `${lat}, ${lng}`}`);
+                isUpdatingMapFromCode = false;
+            });
+        }
+
+        updateReferenceOverlays(currentMapLocation);
+        emptyPreview.hidden = true;
+        syncInteractiveMarkers();
+        syncInteractiveKmlOverlays();
+        setPreviewMode("interactive");
+        setTimeout(() => {
+            isInitializingMap = false;
+        }, 600);
+    } catch (err) {
+        console.error("Failed to initialize Google Maps:", err);
+        emptyPreview.innerHTML = `<p style="color:var(--burgundy,#b00);padding:1rem;">Failed to load interactive map: ${err.message}</p>`;
+    }
+}
+
 async function loadStyles() {
     const [response, presetsResponse, namesResponse] = await Promise.all([
         fetch(apiUrl, { headers: { Accept: "application/json" } }),
@@ -166,31 +473,36 @@ async function loadStyles() {
     }));
     styleSelect.value = "streetLevel";
     renderLayerControls();
+
+    if (data.apiKey) {
+        initGoogleMaps(data.apiKey);
+    } else {
+        emptyPreview.innerHTML = '<p style="color:var(--burgundy,#b00);padding:1rem;">Map API key missing. Check your server settings.</p>';
+    }
 }
 
 function renderLayerControls() {
     const container = document.getElementById("advanced-layers");
     const preset = presetStyles[styleSelect.value];
-    const uniqueFeatures = new Map();
+    const uniqueFeatures = new Set();
     for (const rule of preset?.styles || []) {
-        if (!rule.featureType || rule.noToggle === true || uniqueFeatures.has(rule.featureType)) {
+        if (!rule.featureType || rule.noToggle === true) {
             continue;
         }
-        const visibility = (rule.stylers || []).find(styler => styler.visibility)?.visibility;
-        uniqueFeatures.set(rule.featureType, visibility !== "off");
+        uniqueFeatures.add(rule.featureType);
     }
+    toggleableFeatureTypes = [...uniqueFeatures];
 
     container.replaceChildren();
-    for (const [featureType, defaultVisibility] of uniqueFeatures) {
+    for (const featureType of toggleableFeatureTypes) {
         const label = document.createElement("label");
         label.className = "layer-toggle";
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
-        checkbox.checked = Object.hasOwn(layerOverrides, featureType)
-            ? layerOverrides[featureType]
-            : defaultVisibility;
+        checkbox.checked = effectiveFeatureVisibility(featureType);
         checkbox.addEventListener("change", () => {
             layerOverrides[featureType] = checkbox.checked;
+            applyInteractiveMapStyles();
             invalidateOutput();
         });
         const text = document.createElement("span");
@@ -208,15 +520,19 @@ async function generateMap(event) {
     setStatus("Generating the map…");
 
     try {
-        let location = parseMapUrl(urlInput.value);
-        if (labels.length > 0) {
-            location = {
-                ...location,
-                lat: labels[0].lat,
-                lng: labels[0].lng,
-            };
-            urlInput.value = `https://www.google.com/maps/@${labels[0].lat},${labels[0].lng},${location.zoom}z`;
+        if (googleMap) {
+            const center = googleMap.getCenter();
+            if (center) {
+                const lat = Number(center.lat().toFixed(6));
+                const lng = Number(center.lng().toFixed(6));
+                const zoom = Math.max(3, Math.min(16, Math.round(googleMap.getZoom() || 12)));
+                currentMapLocation = { lat, lng, zoom };
+                urlInput.value = `https://www.google.com/maps/@${lat},${lng},${zoom}z`;
+            }
+        } else if (!urlInput.value.trim() && currentMapLocation) {
+            urlInput.value = `https://www.google.com/maps/@${currentMapLocation.lat},${currentMapLocation.lng},${currentMapLocation.zoom}z`;
         }
+        const location = parseMapUrl(urlInput.value);
         updateReferenceOverlays(location);
         const response = await fetch(apiUrl, {
             method: "POST",
@@ -225,7 +541,10 @@ async function generateMap(event) {
                 ...location,
                 style: styleSelect.value,
                 ratio: selectedRatio(),
-                visibilityOverrides: Object.entries(layerOverrides).map(([featureType, visible]) => ({ featureType, visible })),
+                visibilityOverrides: toggleableFeatureTypes.map(featureType => ({
+                    featureType,
+                    visible: effectiveFeatureVisibility(featureType),
+                })),
                 overlays: kmlLayers.filter(layer => layer.visible).flatMap(layer => layer.overlays),
             }),
         });
@@ -247,8 +566,7 @@ async function generateMap(event) {
         currentImageUrl = URL.createObjectURL(imageBlob);
         currentImageDimensions = { width: exportedWidth, height: exportedHeight };
         previewImage.src = currentImageUrl;
-        previewImage.hidden = false;
-        emptyPreview.hidden = true;
+        setPreviewMode("export");
         downloadButton.disabled = false;
         document.getElementById("download-all").disabled = false;
         const sizeFormatted = imageBlob.size >= 1024 * 1024
@@ -504,6 +822,11 @@ async function addMapLabel() {
             const zoom = currentMapLocation?.zoom || 12;
             urlInput.value = `https://www.google.com/maps/@${label.lat},${label.lng},${zoom}z`;
             updateReferenceOverlays(parseMapUrl(urlInput.value));
+            if (googleMap) {
+                isUpdatingMapFromCode = true;
+                googleMap.setCenter({ lat: label.lat, lng: label.lng });
+                isUpdatingMapFromCode = false;
+            }
         }
         searchInput.value = "";
         captionInput.value = "";
@@ -530,6 +853,7 @@ function renderLabels() {
         visible.setAttribute("aria-label", `Show ${label.title}`);
         visible.addEventListener("change", () => {
             label.visible = visible.checked;
+            syncInteractiveMarkers();
             invalidateOutput();
         });
         const title = document.createElement("input");
@@ -538,6 +862,7 @@ function renderLabels() {
         title.setAttribute("aria-label", "Label text");
         title.addEventListener("input", () => {
             label.title = title.value;
+            syncInteractiveMarkers();
             invalidateOutput();
         });
         const remove = document.createElement("button");
@@ -550,6 +875,11 @@ function renderLabels() {
                 const zoom = currentMapLocation?.zoom || 12;
                 urlInput.value = `https://www.google.com/maps/@${labels[0].lat},${labels[0].lng},${zoom}z`;
                 updateReferenceOverlays(parseMapUrl(urlInput.value));
+                if (googleMap) {
+                    isUpdatingMapFromCode = true;
+                    googleMap.setCenter({ lat: labels[0].lat, lng: labels[0].lng });
+                    isUpdatingMapFromCode = false;
+                }
             }
             renderLabels();
             invalidateOutput();
@@ -597,6 +927,7 @@ function renderLabels() {
         }
         container.append(item);
     });
+    syncInteractiveMarkers();
 }
 
 function kmlColorToCss(value) {
@@ -671,6 +1002,7 @@ function renderKmlLayers() {
         visibility.setAttribute("aria-label", `Show ${layer.name}`);
         visibility.addEventListener("change", () => {
             layer.visible = visibility.checked;
+            syncInteractiveKmlOverlays();
             invalidateOutput();
         });
         const name = document.createElement("span");
@@ -687,6 +1019,7 @@ function renderKmlLayers() {
         item.append(visibility, name, remove);
         list.append(item);
     });
+    syncInteractiveKmlOverlays();
 }
 
 async function importKmlFile(file) {
@@ -775,6 +1108,14 @@ async function importMapState(file) {
         renderLabels();
         renderKmlLayers();
         updateReferenceOverlays(parseMapUrl(urlInput.value));
+        if (googleMap) {
+            isUpdatingMapFromCode = true;
+            const parsedLoc = parseMapUrl(urlInput.value);
+            googleMap.setCenter({ lat: parsedLoc.lat, lng: parsedLoc.lng });
+            googleMap.setZoom(parsedLoc.zoom);
+            applyInteractiveMapStyles();
+            isUpdatingMapFromCode = false;
+        }
         invalidateOutput();
         setStatus("Map settings imported. Generate the map to preview the result.");
     } catch (error) {
@@ -853,6 +1194,7 @@ function downloadOverlay(button) {
 }
 
 form.addEventListener("submit", generateMap);
+document.getElementById("reset-map").addEventListener("click", resetToInitialState);
 downloadButton.addEventListener("click", downloadMap);
 document.getElementById("download-all").addEventListener("click", downloadAll);
 document.getElementById("include-locator").addEventListener("change", invalidateOutput);
@@ -862,6 +1204,11 @@ styleSelect.addEventListener("change", invalidateOutput);
 styleSelect.addEventListener("change", () => {
     layerOverrides = {};
     renderLayerControls();
+    applyInteractiveMapStyles();
+});
+modeInteractiveButton.addEventListener("click", () => setPreviewMode("interactive"));
+modeExportButton.addEventListener("click", () => {
+    if (currentImageUrl) setPreviewMode("export");
 });
 document.querySelectorAll('input[name="ratio"]').forEach(input => input.addEventListener("change", () => {
     updateDimensions();
@@ -869,7 +1216,14 @@ document.querySelectorAll('input[name="ratio"]').forEach(input => input.addEvent
 }));
 document.getElementById("read-url").addEventListener("click", () => {
     try {
-        updateReferenceOverlays(parseMapUrl(urlInput.value));
+        const location = parseMapUrl(urlInput.value);
+        updateReferenceOverlays(location);
+        if (googleMap) {
+            isUpdatingMapFromCode = true;
+            googleMap.setCenter({ lat: location.lat, lng: location.lng });
+            googleMap.setZoom(location.zoom);
+            isUpdatingMapFromCode = false;
+        }
         setStatus("Map location found. Choose a style and generate the image.");
     } catch (error) {
         setStatus(error.message, "error");
@@ -878,7 +1232,7 @@ document.getElementById("read-url").addEventListener("click", () => {
 
 updateDimensions();
 loadStyles().then(() => {
-    setStatus("Paste a map URL to begin.");
+    setStatus("Interactive map ready. Search a location or pan around.");
 }).catch(error => {
     styleSelect.replaceChildren(new Option("Styles unavailable", ""));
     setStatus(error.message, "error");

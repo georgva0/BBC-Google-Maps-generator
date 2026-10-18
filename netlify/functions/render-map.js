@@ -70,15 +70,20 @@ function normalizeMapType(mapType) {
 
 exports.handler = async function(event) {
     if (event.httpMethod === "GET") {
+        const clientKey = process.env.GOOGLE_MAPS_API_CLIENT_KEY
+            || process.env.GOOGLE_MAPS_CLIENT_KEY
+            || process.env.GOOGLE_MAPS_API
+            || "";
         return jsonResponse(200, {
             styles: Object.entries(presets).map(([id, preset]) => ({ id, title: preset.title })),
+            apiKey: clientKey,
         });
     }
     if (event.httpMethod !== "POST") {
         return jsonResponse(405, { error: "Method not allowed." });
     }
 
-    const apiKey = process.env.GOOGLE_MAPS_API;
+    const apiKey = process.env.GOOGLE_MAPS_API || process.env.GOOGLE_MAPS_API_CLIENT_KEY;
     if (!apiKey) {
         return jsonResponse(503, { error: "Map service is not configured." });
     }

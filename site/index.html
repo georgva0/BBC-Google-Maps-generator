@@ -25,27 +25,61 @@
         </div>
 
         <form id="map-form">
-          <label for="map-url">Google Maps URL</label>
+          <label for="location-search">Find location</label>
           <div class="url-row">
             <input
-              id="map-url"
-              name="mapUrl"
-              type="url"
-              placeholder="Paste a maps.google.com URL"
-              required
-              autocomplete="url"
+              id="location-search"
+              type="search"
+              placeholder="Search a city, place, or address..."
+              autocomplete="off"
             />
             <button
-              class="quiet-button"
-              id="read-url"
+              class="refresh-button"
+              id="reset-map"
               type="button"
-              aria-label="Read coordinates from URL"
-              title="Read coordinates from URL"
+              aria-label="Reset map to its initial view and remove all labels"
+              title="Reset map and remove all labels"
             >
-              Read
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
             </button>
           </div>
-          <p class="field-note">Use a link containing a map center and zoom.</p>
+          <p class="field-note">
+            Type to search, or click & drag the interactive map preview to pan and zoom.
+          </p>
+
+          <details class="url-accordion">
+            <summary class="url-accordion-toggle">Or paste Google Maps URL</summary>
+            <div class="url-row" style="margin-top: 8px;">
+              <input
+                id="map-url"
+                name="mapUrl"
+                type="url"
+                placeholder="https://maps.google.com/..."
+                autocomplete="url"
+              />
+              <button
+                class="quiet-button"
+                id="read-url"
+                type="button"
+                aria-label="Read coordinates from URL"
+                title="Read coordinates from URL"
+              >
+                Read
+              </button>
+            </div>
+          </details>
 
           <label for="map-style">Map style</label>
           <select id="map-style" name="style" required>
@@ -273,13 +307,21 @@
 
       <section class="preview-column" aria-label="Map preview">
         <div class="preview-toolbar">
-          <span>PREVIEW</span>
+          <div class="preview-mode-tabs" role="tablist" aria-label="Preview display mode">
+            <button id="mode-interactive" class="mode-tab active" type="button" role="tab" aria-selected="true">
+              Interactive map
+            </button>
+            <button id="mode-export" class="mode-tab" type="button" role="tab" aria-selected="false" disabled>
+              Export preview
+            </button>
+          </div>
           <span id="preview-dimensions">16:9 · 1280 × 720</span>
         </div>
         <div id="preview-frame" class="preview-frame landscape">
+          <div id="interactive-map" class="interactive-map"></div>
           <div id="empty-preview" class="empty-preview">
             <span class="preview-crosshair" aria-hidden="true">+</span>
-            <p>Your map will appear here</p>
+            <p>Loading interactive map…</p>
           </div>
           <img id="map-image" alt="Generated Google map preview" hidden />
         </div>
