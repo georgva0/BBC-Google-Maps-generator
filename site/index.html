@@ -56,12 +56,15 @@
             </button>
           </div>
           <p class="field-note">
-            Type to search, or click & drag the interactive map preview to pan and zoom.
+            Type to search, or click & drag the interactive map preview to pan
+            and zoom.
           </p>
 
           <details class="url-accordion">
-            <summary class="url-accordion-toggle">Or paste Google Maps URL</summary>
-            <div class="url-row" style="margin-top: 8px;">
+            <summary class="url-accordion-toggle">
+              Or paste Google Maps URL
+            </summary>
+            <div class="url-row" style="margin-top: 8px">
               <input
                 id="map-url"
                 name="mapUrl"
@@ -195,6 +198,43 @@
           </p>
         </form>
 
+        <div class="download-row">
+          <div>
+            <p class="eyebrow">PNG EXPORT</p>
+            <p id="output-size" class="output-size">1280 × 720 px</p>
+          </div>
+          <div class="download-actions">
+            <button
+              class="download-button"
+              id="download-map"
+              type="button"
+              disabled
+            >
+              Download PNG
+            </button>
+            <button
+              class="all-download-button"
+              id="download-all"
+              type="button"
+              disabled
+              title="Download map, locator, and scale"
+            >
+              All files
+            </button>
+          </div>
+        </div>
+
+        <fieldset class="map-overlay-options">
+          <legend>Include in map PNG</legend>
+          <label
+            ><input id="include-locator" type="checkbox" checked />
+            Locator</label
+          >
+          <label
+            ><input id="include-scale" type="checkbox" checked /> Scale</label
+          >
+        </fieldset>
+
         <section class="auxiliary-tools" aria-label="Locator and scale">
           <div class="auxiliary-tool">
             <div class="auxiliary-heading">
@@ -269,52 +309,32 @@
             </svg>
           </div>
         </section>
-
-        <fieldset class="map-overlay-options">
-          <legend>Include in map PNG</legend>
-          <label
-            ><input id="include-locator" type="checkbox" checked />
-            Locator</label
-          >
-          <label
-            ><input id="include-scale" type="checkbox" checked /> Scale</label
-          >
-        </fieldset>
-
-        <div class="download-row">
-          <div>
-            <p class="eyebrow">PNG EXPORT</p>
-            <p id="output-size" class="output-size">1280 × 720 px</p>
-          </div>
-          <div class="download-actions">
-            <button
-              class="download-button"
-              id="download-map"
-              type="button"
-              disabled
-            >
-              Download PNG
-            </button>
-            <button
-              class="all-download-button"
-              id="download-all"
-              type="button"
-              disabled
-              title="Download map, locator, and scale"
-            >
-              All files
-            </button>
-          </div>
-        </div>
       </aside>
 
       <section class="preview-column" aria-label="Map preview">
         <div class="preview-toolbar">
-          <div class="preview-mode-tabs" role="tablist" aria-label="Preview display mode">
-            <button id="mode-interactive" class="mode-tab active" type="button" role="tab" aria-selected="true">
+          <div
+            class="preview-mode-tabs"
+            role="tablist"
+            aria-label="Preview display mode"
+          >
+            <button
+              id="mode-interactive"
+              class="mode-tab active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+            >
               Interactive map
             </button>
-            <button id="mode-export" class="mode-tab" type="button" role="tab" aria-selected="false" disabled>
+            <button
+              id="mode-export"
+              class="mode-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              disabled
+            >
               Export preview
             </button>
           </div>
@@ -322,6 +342,11 @@
         </div>
         <div id="preview-frame" class="preview-frame landscape">
           <div id="interactive-map" class="interactive-map"></div>
+          <div
+            id="country-labels"
+            class="country-label-layer"
+            aria-hidden="true"
+          ></div>
           <div id="empty-preview" class="empty-preview">
             <span class="preview-crosshair" aria-hidden="true">+</span>
             <p>Loading interactive map…</p>
@@ -338,6 +363,7 @@
     <script src="vendor/topojson.min.js" defer></script>
     <script src="world-loader.js" defer></script>
     <script src="world-110m.js" defer></script>
+    <script src="world-country-names.js" defer></script>
     <script src="locator.js" defer></script>
     <script src="app.js" defer></script>
   </body>
