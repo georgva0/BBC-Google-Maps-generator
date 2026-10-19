@@ -399,6 +399,31 @@ async function initGoogleMaps(apiKey) {
             }
         });
 
+        googleMap.addListener("rightclick", event => {
+            if (!event.latLng) return;
+            if (labels.length >= 100) {
+                setStatus("You can add up to 100 labels.", "error");
+                return;
+            }
+            const lat = Number(event.latLng.lat().toFixed(5));
+            const lng = Number(event.latLng.lng().toFixed(5));
+            const label = {
+                title: `${lat}, ${lng}`,
+                lat,
+                lng,
+                visible: true,
+                direction: "left",
+                pointerStyle: "whiteBlackPointer",
+                backgroundColor: "#ffffff",
+                textStyle: "regular",
+                textColor: "#222222",
+            };
+            labels.push(label);
+            renderLabels();
+            invalidateOutput();
+            setStatus(`Added label at ${lat}, ${lng}`);
+        });
+
         if (locationSearchInput) {
             locationSearchInput.addEventListener("keydown", event => {
                 if (event.key === "Enter") {

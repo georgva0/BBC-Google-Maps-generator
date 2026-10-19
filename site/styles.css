@@ -124,6 +124,18 @@ fieldset legend {
     gap: 6px;
 }
 
+.url-row input[type="search"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 42px;
+    padding: 0 11px;
+    border: 1px solid #bdc8be;
+    border-radius: 2px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 12px;
+}
+
 input[type="url"],
 select {
     width: 100%;
@@ -165,6 +177,7 @@ button:focus-visible {
 
 .refresh-button {
     width: 42px;
+    height: 42px;
     flex: 0 0 42px;
     display: grid;
     place-items: center;
@@ -269,6 +282,13 @@ select {
     width: 54px;
     height: 38px;
     flex-basis: 54px;
+}
+
+.label-hint {
+    margin: 7px 0 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
 }
 
 .label-list {
