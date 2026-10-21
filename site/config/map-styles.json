@@ -39,7 +39,7 @@
             "visibility": "simplified"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "featureType": "administrative.country",
@@ -296,7 +296,7 @@
             "visibility": "simplified"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "featureType": "administrative.country",
@@ -553,7 +553,7 @@
             "visibility": "simplified"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "featureType": "administrative.country",
@@ -810,7 +810,7 @@
             "visibility": "simplified"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "featureType": "administrative.country",
@@ -1067,7 +1067,7 @@
             "visibility": "simplified"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "featureType": "administrative.country",
@@ -1297,7 +1297,7 @@
             "visibility": "simplified"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "elementType": "labels",
@@ -1521,7 +1521,7 @@
             "visibility": "off"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "featureType": "administrative.country",
@@ -1732,7 +1732,7 @@
             "visibility": "simplified"
           }
         ],
-        "noToggle": true
+        "noToggle": false
       },
       {
         "featureType": "administrative.country",

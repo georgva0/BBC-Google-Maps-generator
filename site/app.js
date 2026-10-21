@@ -30,6 +30,7 @@ const DEFAULT_VISIBLE_FEATURES = new Set([
   "landscape.natural",
   "landscape.man_made",
   "water",
+  "administrative",
   "administrative.country",
 ]);
 
