@@ -332,7 +332,31 @@ function computeEffectiveMapStyles() {
     },
   ];
 
-  return [...baseStyles, ...overrideRules, ...basemapLabelRules];
+  // Every preset flattens all basemap label text to a mid grey (#808080, or
+  // #dddddd for the hybrid style). Over the pale basemaps that is only about
+  // 3.3:1 contrast, so town and city names read as a soft grey blur next to
+  // the near-black country labels drawn on top. Darker text with an opaque
+  // white halo fixes the interactive preview without touching the exported
+  // PNG, which still renders with the preset colours unchanged.
+  const legibleLabelRules = [
+    {
+      featureType: "all",
+      elementType: "labels.text.fill",
+      stylers: [{ color: "#3a423d" }],
+    },
+    {
+      featureType: "all",
+      elementType: "labels.text.stroke",
+      stylers: [{ color: "#ffffff" }],
+    },
+  ];
+
+  return [
+    ...baseStyles,
+    ...overrideRules,
+    ...basemapLabelRules,
+    ...legibleLabelRules,
+  ];
 }
 
 function applyInteractiveMapStyles() {
