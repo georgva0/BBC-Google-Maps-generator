@@ -735,11 +735,22 @@ button:disabled {
   font-family: "Aptos", "Segoe UI", sans-serif;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #4a5a51;
+  /* Near-black ink with an opaque white halo. The halo used to be a soft
+     translucent glow, which only read on dark satellite imagery and washed
+     out against the pale cream map styles. A hard-edged ring (plus a slight
+     outer glow) keeps the text legible on light and dark basemaps alike, so
+     country labels no longer need to be hidden for particular styles. */
+  color: #1b241f;
   text-shadow:
-    0 0 2px #fff,
-    0 0 3px #fff,
-    0 0 4px rgba(255, 255, 255, 0.9);
+    0.09em 0 0 #fff,
+    -0.09em 0 0 #fff,
+    0 0.09em 0 #fff,
+    0 -0.09em 0 #fff,
+    0.065em 0.065em 0 #fff,
+    -0.065em -0.065em 0 #fff,
+    0.065em -0.065em 0 #fff,
+    -0.065em 0.065em 0 #fff,
+    0 0 0.22em rgba(255, 255, 255, 0.85);
   white-space: nowrap;
 }
 
