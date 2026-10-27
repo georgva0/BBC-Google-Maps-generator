@@ -584,7 +584,7 @@ function resetToInitialState() {
 async function initGoogleMaps(apiKey) {
   if (!apiKey) {
     showPreviewError(
-      "Google Maps API key is missing. Check your settings.",
+      "Interactive map unavailable: no browser map key was provided. Set GOOGLE_MAPS_API_CLIENT_KEY in your hosting environment variables and redeploy.",
     );
     return;
   }
@@ -751,7 +751,15 @@ async function loadStyles() {
   if (data.apiKey) {
     initGoogleMaps(data.apiKey);
   } else {
-    showPreviewError("Map API key missing. Check your server settings.");
+    // The server only ever exposes the browser-restricted key. If this is
+    // empty, GOOGLE_MAPS_API_CLIENT_KEY is not set in the hosting
+    // environment (a redeploy is required after adding it).
+    showPreviewError(
+      "Interactive map unavailable: the server did not return a browser map key. Set GOOGLE_MAPS_API_CLIENT_KEY in your hosting environment variables and redeploy.",
+    );
+    setStatus(
+      "Styled map export still works, but the interactive map is unavailable.",
+    );
   }
 }
 
@@ -1550,7 +1558,10 @@ async function importMapState(file) {
     ) {
       styleSelect.value = state.style;
     }
-    if (typeof state.ratio === "string" && Object.hasOwn(dimensions, state.ratio)) {
+    if (
+      typeof state.ratio === "string" &&
+      Object.hasOwn(dimensions, state.ratio)
+    ) {
       form.elements.ratio.value = state.ratio;
       updateDimensions();
     }

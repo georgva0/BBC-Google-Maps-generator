@@ -7,19 +7,19 @@ A standalone web app for creating styled Google Maps PNGs. Search for a location
 Requirements: Node.js 22 or later and npm.
 
 1. Install dependencies with `npm install`.
-2. Create `.env` from `.env.example` and set `GOOGLE_MAPS_API`. This is the server-side key used for Maps Static API and Geocoding API requests.
-3. Optionally set `GOOGLE_MAPS_API_CLIENT_KEY` for the interactive map. If it is not set, the function falls back to `GOOGLE_MAPS_API`.
+2. Create `.env` from `.env.example` and set `GOOGLE_MAPS_API`. This is the server-side key used for Maps Static API and Geocoding API requests. It is never sent to the browser.
+3. Set `GOOGLE_MAPS_API_CLIENT_KEY` for the interactive map. This is **required**; the function does not fall back to the server key, because doing so would publish it to every visitor.
 4. In Google Cloud, enable the APIs used by the app:
    - Maps Static API and Geocoding API for the server key.
-   - Maps JavaScript API and Places API for the browser key.
+   - Maps JavaScript API and Places API for the browser key, restricted by HTTP referrer to your site's URL.
      Restrict each key to the APIs and origins it needs, and configure quotas and billing alerts.
 5. Run `npm run dev` and open the local URL printed by Netlify CLI.
 
-The function exposes the browser key to the client by design so the interactive map can load. Never use an unrestricted key.
+The function exposes only the browser key to the client by design so the interactive map can load. Never use an unrestricted key, and never expose the server key.
 
 ## Deploy to Netlify
 
-Connect this repository to Netlify. The checked-in `netlify.toml` sets the build command and publish directory. Add `GOOGLE_MAPS_API` (and optionally `GOOGLE_MAPS_API_CLIENT_KEY`) in the site's environment variables, then deploy.
+Connect this repository to Netlify. The checked-in `netlify.toml` sets the build command and publish directory. Add both `GOOGLE_MAPS_API` and `GOOGLE_MAPS_API_CLIENT_KEY` in the site's environment variables, then deploy. Environment variable changes only reach the running function after a new deploy.
 
 ## Usage
 
