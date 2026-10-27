@@ -828,6 +828,16 @@ button:disabled {
   font-size: 18px;
 }
 
+.empty-preview-error {
+  margin: 0;
+  padding: 1rem;
+  max-width: 34ch;
+  text-align: center;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  color: var(--burgundy, #b00);
+}
+
 .preview-crosshair {
   width: 26px;
   height: 26px;

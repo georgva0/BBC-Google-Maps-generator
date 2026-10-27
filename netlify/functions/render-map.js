@@ -43,6 +43,67 @@ function jsonResponse(statusCode, body) {
   };
 }
 
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_LIMITS = {
+  styles: 120,
+  geocode: 20,
+  render: 30,
+};
+const MAX_RATE_BUCKETS = 5000;
+const rateBuckets = new Map();
+
+function clientIp(event) {
+  const direct = event.headers?.["x-nf-client-connection-ip"];
+  if (direct) {
+    return direct;
+  }
+  const forwarded = event.headers?.["x-forwarded-for"] || "";
+  return forwarded.split(",")[0].trim() || "unknown";
+}
+
+// Best-effort per-instance throttle. Serverless instances are recycled and not
+// shared, so this raises the cost of abuse but does not replace an edge/WAF
+// rate limit (see Netlify's rate limiting rules) for hard guarantees.
+function isRateLimited(key, limit) {
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now >= bucket.resetAt) {
+    if (rateBuckets.size >= MAX_RATE_BUCKETS) {
+      for (const [bucketKey, entry] of rateBuckets) {
+        if (now >= entry.resetAt) {
+          rateBuckets.delete(bucketKey);
+        }
+      }
+      if (rateBuckets.size >= MAX_RATE_BUCKETS) {
+        rateBuckets.clear();
+      }
+    }
+    rateBuckets.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > limit;
+}
+
+// Browsers send Origin on same-origin POSTs, so rejecting a mismatched origin
+// stops other sites from driving this billable endpoint. Requests without an
+// Origin header (server-to-server, curl) still pass and are throttled by IP.
+function isAllowedOrigin(event) {
+  const origin = event.headers?.origin;
+  if (!origin) {
+    return true;
+  }
+  const host = event.headers?.host;
+  if (!host) {
+    return false;
+  }
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 function serializeStyle(rule) {
   const parts = [];
   if (rule.featureType) {
@@ -72,12 +133,18 @@ function normalizeMapType(mapType) {
 }
 
 exports.handler = async function (event) {
+  if (!isAllowedOrigin(event)) {
+    return jsonResponse(403, { error: "Cross-origin requests are not allowed." });
+  }
+  const ip = clientIp(event);
+
   if (event.httpMethod === "GET") {
-    const clientKey =
-      process.env.GOOGLE_MAPS_API_CLIENT_KEY ||
-      process.env.GOOGLE_MAPS_CLIENT_KEY ||
-      process.env.GOOGLE_MAPS_API ||
-      "";
+    if (isRateLimited(`${ip}:styles`, RATE_LIMITS.styles)) {
+      return jsonResponse(429, { error: "Too many requests. Try again shortly." });
+    }
+    // Only ever expose the browser-restricted key. Never fall back to the
+    // server key, which must stay secret on the function's side.
+    const clientKey = process.env.GOOGLE_MAPS_API_CLIENT_KEY || "";
     return jsonResponse(200, {
       styles: Object.entries(presets).map(([id, preset]) => ({
         id,
@@ -111,6 +178,9 @@ exports.handler = async function (event) {
   }
 
   if (input.action === "geocode") {
+    if (isRateLimited(`${ip}:geocode`, RATE_LIMITS.geocode)) {
+      return jsonResponse(429, { error: "Too many requests. Try again shortly." });
+    }
     const address =
       typeof input.address === "string" ? input.address.trim() : "";
     if (!address || address.length > 200) {
@@ -152,11 +222,21 @@ exports.handler = async function (event) {
     }
   }
 
+  if (isRateLimited(`${ip}:render`, RATE_LIMITS.render)) {
+    return jsonResponse(429, { error: "Too many requests. Try again shortly." });
+  }
+
   const lat = Number(input.lat);
   const lng = Number(input.lng);
   const zoom = Number(input.zoom);
-  const preset = presets[input.style];
-  const size = imageSizes[input.ratio];
+  const preset =
+    typeof input.style === "string" && Object.hasOwn(presets, input.style)
+      ? presets[input.style]
+      : undefined;
+  const size =
+    typeof input.ratio === "string" && Object.hasOwn(imageSizes, input.ratio)
+      ? imageSizes[input.ratio]
+      : undefined;
 
   if (
     !Number.isFinite(lat) ||

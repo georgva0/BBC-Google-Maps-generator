@@ -86,6 +86,14 @@ function setStatus(message, state = "") {
   statusText.dataset.state = state;
 }
 
+function showPreviewError(message) {
+  const paragraph = document.createElement("p");
+  paragraph.className = "empty-preview-error";
+  paragraph.textContent = message;
+  emptyPreview.replaceChildren(paragraph);
+  emptyPreview.hidden = false;
+}
+
 function selectedRatio() {
   return form.elements.ratio.value;
 }
@@ -575,8 +583,9 @@ function resetToInitialState() {
 
 async function initGoogleMaps(apiKey) {
   if (!apiKey) {
-    emptyPreview.innerHTML =
-      '<p style="color:var(--burgundy,#b00);padding:1rem;">Google Maps API key is missing. Check your settings.</p>';
+    showPreviewError(
+      "Google Maps API key is missing. Check your settings.",
+    );
     return;
   }
   googleMapsApiKey = apiKey;
@@ -708,7 +717,7 @@ async function initGoogleMaps(apiKey) {
     }, 600);
   } catch (err) {
     console.error("Failed to initialize Google Maps:", err);
-    emptyPreview.innerHTML = `<p style="color:var(--burgundy,#b00);padding:1rem;">Failed to load interactive map: ${err.message}</p>`;
+    showPreviewError(`Failed to load interactive map: ${err.message}`);
   }
 }
 
@@ -742,8 +751,7 @@ async function loadStyles() {
   if (data.apiKey) {
     initGoogleMaps(data.apiKey);
   } else {
-    emptyPreview.innerHTML =
-      '<p style="color:var(--burgundy,#b00);padding:1rem;">Map API key missing. Check your server settings.</p>';
+    showPreviewError("Map API key missing. Check your server settings.");
   }
 }
 
@@ -1536,8 +1544,13 @@ async function importMapState(file) {
       Math.min(16, Math.round(Number(state.location.zoom) || 12)),
     );
     urlInput.value = `https://www.google.com/maps/@${Number(state.location.lat)},${Number(state.location.lng)},${zoom}z`;
-    if (presetStyles[state.style]) styleSelect.value = state.style;
-    if (dimensions[state.ratio]) {
+    if (
+      typeof state.style === "string" &&
+      Object.hasOwn(presetStyles, state.style)
+    ) {
+      styleSelect.value = state.style;
+    }
+    if (typeof state.ratio === "string" && Object.hasOwn(dimensions, state.ratio)) {
       form.elements.ratio.value = state.ratio;
       updateDimensions();
     }
