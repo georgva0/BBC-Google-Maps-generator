@@ -928,6 +928,46 @@ function projectToMap(location, dimensions, mapLocation) {
   };
 }
 
+function wrapLabelLines(context, text, maxWidth) {
+  const lines = [];
+  let currentLine = "";
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const proposedLine = currentLine ? `${currentLine} ${word}` : word;
+    if (currentLine && context.measureText(proposedLine).width > maxWidth) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = proposedLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+// Split into two lines of similar width, so long names break at the most
+// balanced word boundary rather than at whichever word happens to overflow.
+function splitIntoTwoBalancedLines(context, text, maxWidth) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length < 2) {
+    return null;
+  }
+  let best = null;
+  for (let index = 1; index < words.length; index += 1) {
+    const first = words.slice(0, index).join(" ");
+    const second = words.slice(index).join(" ");
+    const firstWidth = context.measureText(first).width;
+    const secondWidth = context.measureText(second).width;
+    if (firstWidth > maxWidth || secondWidth > maxWidth) {
+      continue;
+    }
+    const score = Math.max(firstWidth, secondWidth);
+    if (!best || score < best.score) {
+      best = { lines: [first, second], score };
+    }
+  }
+  return best ? best.lines : null;
+}
+
 function drawMapLabel(context, label, point, scale) {
   if (
     !label.visible ||
@@ -953,22 +993,20 @@ function drawMapLabel(context, label, point, scale) {
   const paddingX = 12 * scale;
   const paddingY = 8 * scale;
   const maxTextWidth = Math.min(340 * scale, context.canvas.width * 0.38);
+  const isLinePointer = label.pointerStyle === "linePointer";
 
   context.save();
   context.font = `${weight} ${fontSize}px Arial, sans-serif`;
-  const words = title.split(/\s+/);
-  const lines = [];
-  let currentLine = "";
-  for (const word of words) {
-    const proposedLine = currentLine ? `${currentLine} ${word}` : word;
-    if (currentLine && context.measureText(proposedLine).width > maxTextWidth) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = proposedLine;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
+
+  // Any label longer than three words is broken over more than one line, even
+  // if it would fit on a single line. Four or more words prefer a balanced
+  // two-line split; if that overflows, normal width-based wrapping takes over.
+  const wordCount = title.split(/\s+/).filter(Boolean).length;
+  const balancedLines =
+    wordCount > 3
+      ? splitIntoTwoBalancedLines(context, title, maxTextWidth)
+      : null;
+  const lines = balancedLines || wrapLabelLines(context, title, maxTextWidth);
 
   const lineHeight = fontSize * 1.2;
   const boxWidth =
@@ -979,34 +1017,78 @@ function drawMapLabel(context, label, point, scale) {
     paddingX * 2;
   const boxHeight = lines.length * lineHeight + paddingY * 2;
   const direction = label.direction || "left";
-  let boxX =
-    direction === "right"
-      ? point.x + 9 * scale
-      : direction === "left"
-        ? point.x - boxWidth - 9 * scale
-        : point.x - boxWidth / 2;
-  let boxY =
-    direction === "up"
-      ? point.y - boxHeight - 12 * scale
-      : direction === "down"
-        ? point.y + 12 * scale
-        : point.y - boxHeight / 2;
+  // Long enough to leave a visible leader between the point and the box.
+  const leaderGap = 34 * scale;
+  let boxX;
+  let boxY;
+
+  if (isLinePointer) {
+    boxX =
+      direction === "right"
+        ? point.x + leaderGap
+        : direction === "left"
+          ? point.x - boxWidth - leaderGap
+          : point.x - boxWidth / 2;
+    boxY =
+      direction === "up"
+        ? point.y - boxHeight - leaderGap
+        : direction === "down"
+          ? point.y + leaderGap
+          : point.y - boxHeight / 2;
+  } else {
+    boxX =
+      direction === "right"
+        ? point.x + 9 * scale
+        : direction === "left"
+          ? point.x - boxWidth - 9 * scale
+          : point.x - boxWidth / 2;
+    boxY =
+      direction === "up"
+        ? point.y - boxHeight - 12 * scale
+        : direction === "down"
+          ? point.y + 12 * scale
+          : point.y - boxHeight / 2;
+  }
   boxX = Math.max(0, Math.min(context.canvas.width - boxWidth, boxX));
   boxY = Math.max(0, Math.min(context.canvas.height - boxHeight, boxY));
+
+  if (isLinePointer) {
+    const anchorX =
+      direction === "left"
+        ? boxX + boxWidth
+        : direction === "right"
+          ? boxX
+          : boxX + boxWidth / 2;
+    const anchorY =
+      direction === "up"
+        ? boxY + boxHeight
+        : direction === "down"
+          ? boxY
+          : boxY + boxHeight / 2;
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+    context.lineTo(anchorX, anchorY);
+    context.lineWidth = 1.5 * scale;
+    context.strokeStyle = "#222";
+    context.stroke();
+  }
 
   if (label.pointerStyle !== "noPointer") {
     context.beginPath();
     context.arc(point.x, point.y, 5 * scale, 0, Math.PI * 2);
-    context.fillStyle = label.pointerStyle?.includes("white")
-      ? "#fff"
-      : label.pointerStyle?.includes("kingfisher")
-        ? "#00a6a6"
-        : "#222";
+    // The leader-line pin reads as a white node with a dark ring.
+    context.fillStyle =
+      label.pointerStyle?.includes("white") || isLinePointer
+        ? "#fff"
+        : label.pointerStyle?.includes("kingfisher")
+          ? "#00a6a6"
+          : "#222";
     context.fill();
     context.lineWidth = 1.5 * scale;
     context.strokeStyle =
       label.pointerStyle?.includes("Stroke") ||
-      label.pointerStyle === "whiteBlackPointer"
+      label.pointerStyle === "whiteBlackPointer" ||
+      isLinePointer
         ? "#222"
         : "#fff";
     context.stroke();
@@ -1017,11 +1099,14 @@ function drawMapLabel(context, label, point, scale) {
     context.fillRect(boxX, boxY, boxWidth, boxHeight);
   }
   context.fillStyle = label.textColor || "#222";
+  // The leader-line style centres its text, which is what makes the box read
+  // as a caption hanging off the point.
+  context.textAlign = isLinePointer ? "center" : "left";
   context.textBaseline = "top";
   lines.forEach((line, index) =>
     context.fillText(
       line,
-      boxX + paddingX,
+      isLinePointer ? boxX + boxWidth / 2 : boxX + paddingX,
       boxY + paddingY + index * lineHeight,
     ),
   );
@@ -1310,6 +1395,7 @@ function renderLabels() {
         ["blackPointer", "Black pointer"],
         ["whiteDotBlackStroke", "White dot"],
         ["blackDot", "Black dot"],
+        ["linePointer", "Pointer with line"],
         ["noPointer", "No pointer"],
       ],
       textStyle: [
