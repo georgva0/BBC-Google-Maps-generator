@@ -1951,5 +1951,268 @@
     ],
     "title": "Quibi",
     "mapType": "terrain"
+  },
+  "quibiColourStyle": {
+    "styles": [
+      {
+        "featureType": "landscape.natural",
+        "stylers": [
+          {
+            "color": "#FFFFFF"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "landscape.man_made",
+        "stylers": [
+          {
+            "color": "#B8B8B8"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "water",
+        "stylers": [
+          {
+            "color": "#BCCBDC"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "administrative",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#F7F7F7"
+          },
+          {
+            "visibility": "simplified"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "administrative.country",
+        "elementType": "geometry.stroke",
+        "stylers": [
+          {
+            "visibility": "on"
+          },
+          {
+            "color": "#333333"
+          },
+          {
+            "weight": 1.5
+          }
+        ],
+        "noToggle": true
+      },
+      {
+        "featureType": "poi",
+        "stylers": [
+          {
+            "color": "#747474"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "poi.park",
+        "stylers": [
+          {
+            "color": "#747474"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "road.highway",
+        "stylers": [
+          {
+            "color": "#464646"
+          },
+          {
+            "weight": 0.4
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "road.arterial",
+        "stylers": [
+          {
+            "color": "#464646"
+          },
+          {
+            "weight": 0.4
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "road.local",
+        "stylers": [
+          {
+            "color": "#464646"
+          },
+          {
+            "weight": 0.6
+          },
+          {
+            "visibility": "simplified"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "transit",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "transit.line",
+        "stylers": [
+          {
+            "color": "#464646"
+          },
+          {
+            "weight": 0.4
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "color": "#999999"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "poi.medical",
+        "stylers": [
+          {
+            "color": "#999999"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "poi.government",
+        "stylers": [
+          {
+            "color": "#999999"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "poi.school",
+        "stylers": [
+          {
+            "color": "#999999"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "poi.sports_complex",
+        "stylers": [
+          {
+            "color": "#999999"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "poi.attraction",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#999999"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": false
+      },
+      {
+        "featureType": "road",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": true
+      },
+      {
+        "featureType": "poi",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": true
+      },
+      {
+        "elementType": "labels",
+        "stylers": [
+          {
+            "color": "#808080"
+          },
+          {
+            "visibility": "off"
+          }
+        ],
+        "noToggle": true
+      }
+    ],
+    "title": "Quibi - colour",
+    "mapType": "terrain"
   }
 }

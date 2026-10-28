@@ -24,7 +24,7 @@ Connect this repository to Netlify. The checked-in `netlify.toml` sets the build
 ## Usage
 
 - **Location** — search for a place, paste a Google Maps URL, or pan and zoom the interactive map. The refresh button next to the search field returns the map to its initial view and clears all labels.
-- **Map style** — choose one of the ten bundled styles and expand "Adjust visible layers" to toggle individual features. Land - natural, Land - man made, Water, and Borders - countries are selected by default when a style provides them. Layers that define a style's character (for example Country level's highways and province borders) are fixed by that style and are not shown as toggles.
+- **Map style** — choose one of the eleven bundled styles and expand "Adjust visible layers" to toggle individual features. Land - natural, Land - man made, Water, and Borders - countries are selected by default when a style provides them. Layers that define a style's character (for example Country level's highways and province borders) are fixed by that style and are not shown as toggles.
 - **Labels** — add labels through the search fields, or right-click anywhere on the interactive map. Labels appear in the Labels list where they can be renamed, restyled (direction, pointer, background, text style/color), hidden, or removed.
 - **KML layers** — import KML files (up to 2 MB) containing points, lines, and polygons; each imported layer can be toggled or removed.
 - **Settings** — export the current map location, style, labels, KML layers, and options to JSON, or import a previously saved settings file (up to 2 MB).
