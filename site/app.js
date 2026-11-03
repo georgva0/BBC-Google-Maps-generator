@@ -1448,7 +1448,7 @@ function renderLabels() {
       });
       item.append(applyAll);
     }
-    container.append(item);
+    container.prepend(item);
   });
   syncInteractiveMarkers();
 }
