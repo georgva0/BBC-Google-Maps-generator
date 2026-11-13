@@ -533,6 +533,22 @@ function syncInteractiveMarkers() {
   });
 }
 
+function createMapLabel(title, lat, lng) {
+  const isRedCallout =
+    document.getElementById("label-style").value === "redCallout";
+  return {
+    title,
+    lat,
+    lng,
+    visible: true,
+    direction: "left",
+    pointerStyle: isRedCallout ? "linePointer" : "whiteBlackPointer",
+    backgroundColor: isRedCallout ? "#c00000" : "#ffffff",
+    textStyle: "regular",
+    textColor: isRedCallout ? "#ffffff" : "#222222",
+  };
+}
+
 function syncInteractiveKmlOverlays() {
   for (const overlay of interactiveKmlOverlays) {
     overlay.setMap(null);
@@ -671,17 +687,7 @@ async function initGoogleMaps(apiKey) {
       }
       const lat = Number(event.latLng.lat().toFixed(5));
       const lng = Number(event.latLng.lng().toFixed(5));
-      const label = {
-        title: `${lat}, ${lng}`,
-        lat,
-        lng,
-        visible: true,
-        direction: "left",
-        pointerStyle: "whiteBlackPointer",
-        backgroundColor: "#ffffff",
-        textStyle: "regular",
-        textColor: "#222222",
-      };
+      const label = createMapLabel(`${lat}, ${lng}`, lat, lng);
       labels.push(label);
       renderLabels();
       invalidateOutput();
@@ -1300,17 +1306,11 @@ async function addMapLabel() {
       }
     }
 
-    const label = {
-      title: captionInput.value.trim() || result.label,
-      lat: result.lat,
-      lng: result.lng,
-      visible: true,
-      direction: "left",
-      pointerStyle: "whiteBlackPointer",
-      backgroundColor: "#ffffff",
-      textStyle: "regular",
-      textColor: "#222222",
-    };
+    const label = createMapLabel(
+      captionInput.value.trim() || result.label,
+      result.lat,
+      result.lng,
+    );
     labels.push(label);
     renderLabels();
     if (labels.length === 1) {
@@ -1407,6 +1407,7 @@ function renderLabels() {
       ],
       backgroundColor: [
         ["#ffffff", "White background"],
+        ["#c00000", "Red background"],
         ["#106078", "Blue background"],
         ["transparent", "No background"],
       ],

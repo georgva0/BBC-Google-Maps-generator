@@ -278,6 +278,14 @@ select {
   grid-column: 1 / -1;
 }
 
+.label-entry #label-style {
+  grid-column: 1 / -1;
+  height: 38px;
+  margin: 0;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
 .label-entry .quiet-button {
   width: 54px;
   height: 38px;

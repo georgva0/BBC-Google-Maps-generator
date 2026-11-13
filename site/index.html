@@ -149,12 +149,16 @@
                 placeholder="Label text (optional)"
                 aria-label="Label caption"
               />
+              <select id="label-style" aria-label="Style for new labels">
+                <option value="standard">Standard label</option>
+                <option value="redCallout">Red callout</option>
+              </select>
               <button id="add-label" class="quiet-button" type="button">
                 Add
               </button>
             </div>
             <p class="label-hint">
-              Right-click on the interactive map to add labels
+              Right-click on the interactive map to add labels with this style
             </p>
             <div id="label-list" class="label-list" aria-live="polite"></div>
           </section>
