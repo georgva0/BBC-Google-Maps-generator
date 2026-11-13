@@ -28,7 +28,7 @@ Connect this repository to Netlify. The checked-in `netlify.toml` sets the build
 - **Labels** — choose Standard label or Red callout before adding a label through the search fields or by right-clicking the interactive map. Red callouts use a red background, white text, and a leader line. Labels appear in the Labels list where they can be renamed, restyled (direction, pointer, background, text style/color), hidden, or removed.
 - **KML layers** — import KML files (up to 2 MB) containing points, lines, and polygons; each imported layer can be toggled or removed.
 - **Settings** — export the current map location, style, labels, KML layers, and options to JSON, or import a previously saved settings file (up to 2 MB).
-- **PNG export** — generate a 1280x720, 1280x1280, or 720x1280 PNG, download it on its own, or download the map, locator, and scale together.
+- **PNG export** — generate a 1280x720, 1280x1280, or 720x1280 map PNG, optionally with a light BBC footer, locator, and scale. The footer is enabled by default and can be turned off in the export options. Download the map on its own or download the map, locator, and scale together.
 
 The interactive preview is sized to show exactly the area the exported PNG will cover at the displayed zoom level. Country names are drawn in a readable font in the preview; the exported PNG contains no automatic country names, so localized labels can be added manually.
 

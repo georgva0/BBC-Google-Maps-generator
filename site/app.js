@@ -55,6 +55,10 @@ let countryLabelMeasureContext = null;
 
 function setPreviewMode(mode) {
   if (mode === "export" && currentImageUrl) {
+    previewFrame.style.height = "auto";
+    previewFrame.style.aspectRatio =
+      `${currentImageDimensions.width} / ${currentImageDimensions.height}`;
+    previewDimensions.textContent = `${currentImageDimensions.width} × ${currentImageDimensions.height} px`;
     modeExportButton.disabled = false;
     modeExportButton.classList.add("active");
     modeExportButton.setAttribute("aria-selected", "true");
@@ -64,6 +68,10 @@ function setPreviewMode(mode) {
     if (interactiveMapElement) interactiveMapElement.hidden = true;
     emptyPreview.hidden = true;
   } else {
+    previewFrame.style.height = "";
+    previewFrame.style.aspectRatio = "";
+    const size = dimensions[selectedRatio()];
+    previewDimensions.textContent = `${size.ratio} · ${size.width} × ${size.height}`;
     modeInteractiveButton.classList.add("active");
     modeInteractiveButton.setAttribute("aria-selected", "true");
     modeExportButton.classList.remove("active");
@@ -1166,6 +1174,7 @@ async function svgToImage(svg) {
 
 async function composeMapImage(mapBlob, location) {
   const activeLabels = labels.filter((label) => label.visible);
+  const includeBbcFooter = document.getElementById("include-bbc-footer").checked;
   const locatorSvg = document.getElementById("include-locator").checked
     ? document.getElementById("locator-svg")
     : null;
@@ -1186,16 +1195,16 @@ async function composeMapImage(mapBlob, location) {
     const scaleImage = scaleSvg ? await svgToImage(scaleSvg) : null;
 
     const renderComposite = async (targetWidth, targetHeight) => {
+      const mapDimensions = dimensions[selectedRatio()];
+      const scale = targetWidth / mapDimensions.width;
+      const footerHeight = includeBbcFooter ? Math.round(48 * scale) : 0;
       const canvas = document.createElement("canvas");
       canvas.width = targetWidth;
-      canvas.height = targetHeight;
+      canvas.height = targetHeight + footerHeight;
       const context = canvas.getContext("2d");
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "high";
       context.drawImage(image, 0, 0, targetWidth, targetHeight);
-
-      const mapDimensions = dimensions[selectedRatio()];
-      const scale = canvas.width / mapDimensions.width;
 
       for (const label of activeLabels) {
         drawMapLabel(
@@ -1225,10 +1234,40 @@ async function composeMapImage(mapBlob, location) {
         context.drawImage(scaleImage, x, inset, scaleWidth, scaleHeight);
       }
 
+      if (includeBbcFooter) {
+        context.fillStyle = "#f5f5f5";
+        context.fillRect(0, targetHeight, targetWidth, footerHeight);
+
+        const logoSize = 28 * scale;
+        const logoGap = 4 * scale;
+        const logoWidth = logoSize * 3 + logoGap * 2;
+        const logoX = targetWidth - 18 * scale - logoWidth;
+        const logoY = targetHeight + (footerHeight - logoSize) / 2;
+        context.font = `bold ${20 * scale}px Arial, sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillStyle = "#000";
+        for (let index = 0; index < 3; index += 1) {
+          const x = logoX + index * (logoSize + logoGap);
+          context.fillRect(x, logoY, logoSize, logoSize);
+          context.fillStyle = "#fff";
+          context.fillText(
+            "BBC"[index],
+            x + logoSize / 2,
+            logoY + logoSize / 2 + 0.5 * scale,
+          );
+          context.fillStyle = "#000";
+        }
+      }
+
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/png"),
       );
-      return { blob, width: targetWidth, height: targetHeight };
+      return {
+        blob,
+        width: targetWidth,
+        height: targetHeight + footerHeight,
+      };
     };
 
     let result = await renderComposite(image.naturalWidth, image.naturalHeight);
@@ -1613,6 +1652,7 @@ function exportMapState() {
     ratio: selectedRatio(),
     includeLocator: document.getElementById("include-locator").checked,
     includeScale: document.getElementById("include-scale").checked,
+    includeBbcFooter: document.getElementById("include-bbc-footer").checked,
     visibilityOverrides: layerOverrides,
     labels,
     kmlLayers,
@@ -1681,6 +1721,10 @@ async function importMapState(file) {
     }
     if (typeof state.includeScale === "boolean") {
       document.getElementById("include-scale").checked = state.includeScale;
+    }
+    if (typeof state.includeBbcFooter === "boolean") {
+      document.getElementById("include-bbc-footer").checked =
+        state.includeBbcFooter;
     }
     layerOverrides =
       state.visibilityOverrides && !Array.isArray(state.visibilityOverrides)
@@ -1820,6 +1864,9 @@ document
   .addEventListener("change", invalidateOutput);
 document
   .getElementById("include-scale")
+  .addEventListener("change", invalidateOutput);
+document
+  .getElementById("include-bbc-footer")
   .addEventListener("change", invalidateOutput);
 urlInput.addEventListener("input", invalidateOutput);
 styleSelect.addEventListener("change", invalidateOutput);
