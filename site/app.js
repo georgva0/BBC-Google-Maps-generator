@@ -21,6 +21,7 @@ const interactiveMapElement = document.getElementById("interactive-map");
 const modeInteractiveButton = document.getElementById("mode-interactive");
 const modeExportButton = document.getElementById("mode-export");
 const MAX_PNG_BYTES = 3.5 * 1024 * 1024; // 3.5 MB limit
+const WATER_LABEL_COLOR = "#193b6a";
 const DEFAULT_MAP_LOCATION = { lat: 52.147594, lng: 1.208101, zoom: 6 };
 const countryLabelLayer = document.getElementById("country-labels");
 const COUNTRY_LABEL_MAX_ZOOM = 7;
@@ -542,18 +543,31 @@ function syncInteractiveMarkers() {
 }
 
 function createMapLabel(title, lat, lng) {
-  const isRedCallout =
-    document.getElementById("label-style").value === "redCallout";
+  const style = document.getElementById("label-style").value;
+  const isRedCallout = style === "redCallout";
+  const isWaterLabel = style === "waterLabel";
   return {
     title,
     lat,
     lng,
     visible: true,
     direction: "left",
-    pointerStyle: isRedCallout ? "linePointer" : "whiteBlackPointer",
-    backgroundColor: isRedCallout ? "#c00000" : "#ffffff",
-    textStyle: "regular",
-    textColor: isRedCallout ? "#ffffff" : "#222222",
+    pointerStyle: isRedCallout
+      ? "linePointer"
+      : isWaterLabel
+        ? "noPointer"
+        : "whiteBlackPointer",
+    backgroundColor: isRedCallout
+      ? "#c00000"
+      : isWaterLabel
+        ? "transparent"
+        : "#ffffff",
+    textStyle: isWaterLabel ? "water" : "regular",
+    textColor: isRedCallout
+      ? "#ffffff"
+      : isWaterLabel
+        ? WATER_LABEL_COLOR
+        : "#222222",
   };
 }
 
@@ -997,20 +1011,25 @@ function drawMapLabel(context, label, point, scale) {
   const fontSize =
     (textStyle === "country" || textStyle === "bold-country"
       ? 26
-      : textStyle === "regular"
-        ? 18
-        : 24) * scale;
+      : textStyle === "water"
+        ? 20
+        : textStyle === "regular"
+          ? 18
+          : 24) * scale;
   const weight =
     textStyle === "bold-region" || textStyle === "bold-country" ? "700" : "400";
   const title =
-    textStyle === "regular" ? label.title : label.title.toUpperCase();
-  const paddingX = 12 * scale;
-  const paddingY = 8 * scale;
+    textStyle === "regular" || textStyle === "water"
+      ? label.title
+      : label.title.toUpperCase();
+  const isWaterLabel = textStyle === "water";
+  const paddingX = isWaterLabel ? 0 : 12 * scale;
+  const paddingY = isWaterLabel ? 0 : 8 * scale;
   const maxTextWidth = Math.min(340 * scale, context.canvas.width * 0.38);
   const isLinePointer = label.pointerStyle === "linePointer";
 
   context.save();
-  context.font = `${weight} ${fontSize}px Arial, sans-serif`;
+  context.font = `${isWaterLabel ? "italic " : ""}${weight} ${fontSize}px Arial, sans-serif`;
 
   // Any label longer than three words is broken over more than one line, even
   // if it would fit on a single line. Four or more words prefer a balanced
@@ -1036,7 +1055,10 @@ function drawMapLabel(context, label, point, scale) {
   let boxX;
   let boxY;
 
-  if (isLinePointer) {
+  if (isWaterLabel) {
+    boxX = point.x - boxWidth / 2;
+    boxY = point.y - boxHeight / 2;
+  } else if (isLinePointer) {
     boxX =
       direction === "right"
         ? point.x + leaderGap
@@ -1115,12 +1137,12 @@ function drawMapLabel(context, label, point, scale) {
   context.fillStyle = label.textColor || "#222";
   // The leader-line style centres its text, which is what makes the box read
   // as a caption hanging off the point.
-  context.textAlign = isLinePointer ? "center" : "left";
+  context.textAlign = isLinePointer || isWaterLabel ? "center" : "left";
   context.textBaseline = "top";
   lines.forEach((line, index) =>
     context.fillText(
       line,
-      isLinePointer ? boxX + boxWidth / 2 : boxX + paddingX,
+      isLinePointer || isWaterLabel ? boxX + boxWidth / 2 : boxX + paddingX,
       boxY + paddingY + index * lineHeight,
     ),
   );
@@ -1439,6 +1461,7 @@ function renderLabels() {
       ],
       textStyle: [
         ["regular", "Regular"],
+        ["water", "Water"],
         ["country", "Country"],
         ["region", "Region"],
         ["bold-region", "Bold region"],
@@ -1453,6 +1476,7 @@ function renderLabels() {
       textColor: [
         ["#222222", "Black text"],
         ["#ffffff", "White text"],
+        [WATER_LABEL_COLOR, "Water blue text"],
       ],
     })) {
       const select = document.createElement("select");
